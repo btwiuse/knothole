@@ -4,13 +4,14 @@
 package main
 
 import (
-	"github.com/webteleport/wtf"
 	"context"
 	"encoding/json"
 	"io"
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/webteleport/wtf"
 
 	"github.com/bep/debounce"
 
@@ -51,9 +52,9 @@ func init() {
 }
 
 type Debouncer struct {
-	Exec func(func()) `json:"-"`
-	Stop chan struct{} `json:"-"`
-	Ingress *nv1.Ingress `json:"Ingress"`
+	Exec    func(func())  `json:"-"`
+	Stop    chan struct{} `json:"-"`
+	Ingress *nv1.Ingress  `json:"Ingress"`
 }
 
 var Debouncers *DebouncerMap = &DebouncerMap{
@@ -90,8 +91,8 @@ func (m *DebouncerMap) Get(s string, i *nv1.Ingress) *Debouncer {
 	defer m.Unlock()
 	if _, ok := m.Debouncers[s]; !ok {
 		m.Debouncers[s] = &Debouncer{
-			Exec: debounce.New(2 * time.Second),
-			Stop: make(chan struct{}, 1),
+			Exec:    debounce.New(2 * time.Second),
+			Stop:    make(chan struct{}, 1),
 			Ingress: i,
 		}
 	}
