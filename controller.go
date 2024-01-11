@@ -6,10 +6,10 @@ import (
 	"context"
 	"fmt"
 
+	samplev1alpha1 "github.com/btwiuse/wrangler-sample/pkg/apis/samplecontroller.k8s.io/v1alpha1"
+	samplescheme "github.com/btwiuse/wrangler-sample/pkg/generated/clientset/versioned/scheme"
+	"github.com/btwiuse/wrangler-sample/pkg/generated/controllers/samplecontroller.k8s.io/v1alpha1"
 	v1 "github.com/kubernot/wrangler/pkg/generated/controllers/apps/v1"
-	samplev1alpha1 "github.com/rancher/wrangler-sample/pkg/apis/samplecontroller.k8s.io/v1alpha1"
-	samplescheme "github.com/rancher/wrangler-sample/pkg/generated/clientset/versioned/scheme"
-	"github.com/rancher/wrangler-sample/pkg/generated/controllers/samplecontroller.k8s.io/v1alpha1"
 	"github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"

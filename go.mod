@@ -1,4 +1,4 @@
-module github.com/rancher/wrangler-sample
+module github.com/btwiuse/wrangler-sample
 
 go 1.21
 
