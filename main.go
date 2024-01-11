@@ -76,6 +76,15 @@ func (m *DebouncerMap) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer m.Unlock()
 }
 
+func (m *DebouncerMap) Del(s string) {
+	m.Lock()
+	defer m.Unlock()
+	if v, ok := m.Debouncers[s]; ok {
+		delete(m.Debouncers, s)
+		v.Stop <- struct{}{}
+	}
+}
+
 func (m *DebouncerMap) Get(s string, i *nv1.Ingress) *Debouncer {
 	m.Lock()
 	defer m.Unlock()
@@ -121,25 +130,23 @@ func main() {
 	networking := networking.NewFactoryFromConfigWithOptionsOrDie(cfg, opts)
 	_ = networking
 	ingressController := v1.New(controllerFactory).Ingress()
-	counter := 0
 	ingressController.OnRemove(ctx, "ingress-handler", func(s string, i *nv1.Ingress) (*nv1.Ingress, error) {
-		counter += 1
 		go (func() {
 			time.Sleep(time.Second)
 			Debouncers.Get(s, i).Exec(func() {
-				log.Println("# on remove", s, counter)
+				log.Println("# on remove", s)
+				Debouncers.Del(s)
 			})
 		})()
 		return nil, nil
 	})
 	ingressController.OnChange(ctx, "ingress-handler", func(s string, i *nv1.Ingress) (*nv1.Ingress, error) {
-		counter += 1
 		if i == nil {
 			return nil, nil
 		}
 		go (func() {
 			Debouncers.Get(s, i).Exec(func() {
-				log.Println("# on change", s, counter)
+				log.Println("# on change", s)
 			})
 		})()
 		return i, nil
