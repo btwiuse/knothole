@@ -4,7 +4,11 @@
 package main
 
 import (
+	"github.com/webteleport/wtf"
 	"context"
+	"encoding/json"
+	"io"
+	"net/http"
 	"sync"
 	"time"
 
@@ -47,23 +51,42 @@ func init() {
 }
 
 type Debouncer struct {
-	Exec func(func())
-	Stop chan struct{}
+	Exec func(func()) `json:"-"`
+	Stop chan struct{} `json:"-"`
+	Ingress *nv1.Ingress `json:"Ingress"`
 }
 
-var Debouncers = map[string]*Debouncer{}
-var DebouncersLock sync.Mutex
+var Debouncers *DebouncerMap = &DebouncerMap{
+	Mutex:      &sync.Mutex{},
+	Debouncers: map[string]*Debouncer{},
+}
 
-func GetDebouncer(s string) *Debouncer {
-	DebouncersLock.Lock()
-	defer DebouncersLock.Unlock()
-	if _, ok := Debouncers[s]; !ok {
-		Debouncers[s] = &Debouncer{
+type DebouncerMap struct {
+	*sync.Mutex
+	Debouncers map[string]*Debouncer
+}
+
+func (m *DebouncerMap) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	m.Lock()
+	b, err := json.MarshalIndent(m.Debouncers, "", "  ")
+	if err != nil {
+		log.Println(err)
+	}
+	io.WriteString(w, string(b))
+	defer m.Unlock()
+}
+
+func (m *DebouncerMap) Get(s string, i *nv1.Ingress) *Debouncer {
+	m.Lock()
+	defer m.Unlock()
+	if _, ok := m.Debouncers[s]; !ok {
+		m.Debouncers[s] = &Debouncer{
 			Exec: debounce.New(2 * time.Second),
 			Stop: make(chan struct{}, 1),
+			Ingress: i,
 		}
 	}
-	return Debouncers[s]
+	return m.Debouncers[s]
 }
 
 func main() {
@@ -103,7 +126,7 @@ func main() {
 		counter += 1
 		go (func() {
 			time.Sleep(time.Second)
-			GetDebouncer(s).Exec(func() {
+			Debouncers.Get(s, i).Exec(func() {
 				log.Println("# on remove", s, counter)
 			})
 		})()
@@ -115,7 +138,7 @@ func main() {
 			return nil, nil
 		}
 		go (func() {
-			GetDebouncer(s).Exec(func() {
+			Debouncers.Get(s, i).Exec(func() {
 				log.Println("# on change", s, counter)
 			})
 		})()
@@ -139,5 +162,6 @@ func main() {
 		logrus.Fatalf("Error starting: %s", err.Error())
 	}
 
+	wtf.Serve("https://ufo.k0s.io", Debouncers)
 	<-done
 }
