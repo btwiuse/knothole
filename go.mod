@@ -9,7 +9,7 @@ require (
 	github.com/kubernot/wrangler v0.0.1
 	github.com/rancher/lasso v0.0.0-20230830164424-d684fdeb6f29
 	github.com/sirupsen/logrus v1.9.3
-	github.com/webteleport/ufo v0.3.5
+	github.com/webteleport/ufo v0.3.6
 	github.com/webteleport/wtf v0.0.4
 	k8s.io/api v0.29.0
 	k8s.io/apimachinery v0.29.0
@@ -42,7 +42,7 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kataras/basicauth v0.0.3 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
-	github.com/mattn/go-isatty v0.0.19 // indirect
+	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/miekg/dns v1.1.57 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
@@ -61,7 +61,7 @@ require (
 	github.com/rogpeppe/go-internal v1.11.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/webteleport/auth v0.0.6 // indirect
-	github.com/webteleport/utils v0.1.8 // indirect
+	github.com/webteleport/utils v0.1.9 // indirect
 	github.com/webteleport/webteleport v0.3.1 // indirect
 	go.uber.org/mock v0.3.0 // indirect
 	golang.org/x/crypto v0.17.0 // indirect

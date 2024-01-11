@@ -105,7 +105,7 @@ func ProcessIngressEvent() {
 			log.Println("  -", path.Path, upstream)
 
 			relay := fmt.Sprintf("https://ufo.k0s.io/%s?clobber=ingress&persist=1", host)
-			go wtf.Serve(relay, teleport.Handler("http://"+upstream))
+			go wtf.Serve(relay, teleport.Handler(upstream))
 
 			s, ok := routes[path.Path]
 			if !ok {
