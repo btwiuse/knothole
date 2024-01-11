@@ -5,6 +5,11 @@ package main
 
 import (
 	"context"
+	"sync"
+	"time"
+
+	"github.com/bep/debounce"
+
 	//"encoding/json"
 	"flag"
 	//"fmt"
@@ -39,6 +44,26 @@ func init() {
 	flag.StringVar(&kubeconfigFile, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&masterURL, "master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
 	flag.Parse()
+}
+
+type Debouncer struct {
+	Exec func(func())
+	Stop chan struct{}
+}
+
+var Debouncers = map[string]*Debouncer{}
+var DebouncersLock sync.Mutex
+
+func GetDebouncer(s string) *Debouncer {
+	DebouncersLock.Lock()
+	defer DebouncersLock.Unlock()
+	if _, ok := Debouncers[s]; !ok {
+		Debouncers[s] = &Debouncer{
+			Exec: debounce.New(2 * time.Second),
+			Stop: make(chan struct{}, 1),
+		}
+	}
+	return Debouncers[s]
 }
 
 func main() {
@@ -76,43 +101,24 @@ func main() {
 	counter := 0
 	ingressController.OnRemove(ctx, "ingress-handler", func(s string, i *nv1.Ingress) (*nv1.Ingress, error) {
 		counter += 1
-		log.Println("# on remove", counter, i.ObjectMeta.Namespace, i.ObjectMeta.Name)
-		if i == nil {
-			log.Println("#deleted")
-			return nil, nil
-		}
-		/*
-			// log.Println(s, i)
-			jsonData, err := json.MarshalIndent(i, "", "  ")
-			jsonData, err = yaml.Marshal(i)
-			if err != nil {
-				fmt.Println("Error:", err)
-				return nil, err
-			}
-
-			// Print the pretty printed JSON
-			fmt.Println(string(jsonData))
-		*/
-		return i, nil
+		go (func() {
+			time.Sleep(time.Second)
+			GetDebouncer(s).Exec(func() {
+				log.Println("# on remove", s, counter)
+			})
+		})()
+		return nil, nil
 	})
 	ingressController.OnChange(ctx, "ingress-handler", func(s string, i *nv1.Ingress) (*nv1.Ingress, error) {
 		counter += 1
 		if i == nil {
 			return nil, nil
 		}
-		log.Println("# on change", counter, i.ObjectMeta.Namespace, i.ObjectMeta.Name)
-		/*
-			// log.Println(s, i)
-			jsonData, err := json.MarshalIndent(i, "", "  ")
-			jsonData, err = yaml.Marshal(i)
-			if err != nil {
-				fmt.Println("Error:", err)
-				return nil, err
-			}
-
-			// Print the pretty printed JSON
-			fmt.Println(string(jsonData))
-		*/
+		go (func() {
+			GetDebouncer(s).Exec(func() {
+				log.Println("# on change", s, counter)
+			})
+		})()
 		return i, nil
 	})
 	// Generated sample controller

@@ -5,6 +5,7 @@ go 1.21
 toolchain go1.21.6
 
 require (
+	github.com/bep/debounce v1.2.1
 	github.com/kubernot/wrangler v0.0.1
 	github.com/rancher/lasso v0.0.0-20230830164424-d684fdeb6f29
 	github.com/sirupsen/logrus v1.9.3
