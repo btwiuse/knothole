@@ -4,15 +4,17 @@ metadata:
   name: example-ingress
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
+    # kubernetes.io/ingress.class: k0s
 spec:
+  ingressClassName: k0s
   rules:
-    - host: example.com
+    - host: example
       http:
         paths:
           - path: /api
             pathType: Prefix
             backend:
               service:
-                name: api-service
+                name: hub
                 port:
-                  number: 8080
+                  number: 80

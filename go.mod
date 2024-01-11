@@ -9,6 +9,7 @@ require (
 	github.com/kubernot/wrangler v0.0.1
 	github.com/rancher/lasso v0.0.0-20230830164424-d684fdeb6f29
 	github.com/sirupsen/logrus v1.9.3
+	github.com/webteleport/ufo v0.3.5
 	github.com/webteleport/wtf v0.0.4
 	k8s.io/api v0.29.0
 	k8s.io/apimachinery v0.29.0

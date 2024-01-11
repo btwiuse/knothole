@@ -6,10 +6,13 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"sync"
 	"time"
+
+	teleport "github.com/webteleport/ufo/apps/teleport/handler"
 
 	"github.com/webteleport/wtf"
 
@@ -57,19 +60,82 @@ type Debouncer struct {
 	Ingress *nv1.Ingress  `json:"Ingress"`
 }
 
+type IngressEvent struct {
+	*nv1.Ingress
+	Action string
+}
+
+var IngressEvents = make(chan IngressEvent, 100)
+
+var AllRoutes = map[string]Routes{}
+
+type Routes map[string]string
+
+func ProcessIngressEvent() {
+	ev := <-IngressEvents
+	if ev.Action == "Delete" {
+		for _, rule := range ev.Ingress.Spec.Rules {
+			host := rule.Host
+			delete(AllRoutes, host)
+		}
+		return
+	}
+	// log.Println("TODO", ev.ObjectMeta.Namespace, ev.ObjectMeta.Name)
+	for _, rule := range ev.Ingress.Spec.Rules {
+		host := rule.Host
+		log.Println("-", host)
+		routes, ok := AllRoutes[host]
+		if !ok {
+			AllRoutes[host] = map[string]string{}
+			routes = AllRoutes[host]
+			log.Println("(create)")
+		} else {
+			log.Println("(update)")
+		}
+		for _, path := range rule.IngressRuleValue.HTTP.Paths {
+			// assuming service is used instead of resource reference
+			if path.Backend.Service == nil {
+				log.Println("Warn: unsupported backend type")
+				continue
+			}
+			ns := "default"
+			svc := path.Backend.Service.Name
+			port := path.Backend.Service.Port.Number
+			upstream := fmt.Sprintf("%s.%s.svc.cluster.local:%d", svc, ns, port)
+			log.Println("  -", path.Path, upstream)
+
+			relay := fmt.Sprintf("https://ufo.k0s.io/%s?clobber=ingress&persist=1", host)
+			go wtf.Serve(relay, teleport.Handler("http://"+upstream))
+
+			s, ok := routes[path.Path]
+			if !ok {
+				// create path
+				routes[path.Path] = upstream
+			} else {
+				if s != upstream {
+					// update path
+					routes[path.Path] = upstream
+				}
+			}
+		}
+	}
+	// TODO
+}
+
 var Debouncers *DebouncerMap = &DebouncerMap{
 	Mutex:      &sync.Mutex{},
 	Debouncers: map[string]*Debouncer{},
 }
 
 type DebouncerMap struct {
-	*sync.Mutex
-	Debouncers map[string]*Debouncer
+	*sync.Mutex `json:"-"`
+	Debouncers  map[string]*Debouncer `json:"Debouncers"`
 }
 
 func (m *DebouncerMap) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	m.Lock()
-	b, err := json.MarshalIndent(m.Debouncers, "", "  ")
+	b, err := json.MarshalIndent(m, "", "  ")
 	if err != nil {
 		log.Println(err)
 	}
@@ -89,14 +155,16 @@ func (m *DebouncerMap) Del(s string) {
 func (m *DebouncerMap) Get(s string, i *nv1.Ingress) *Debouncer {
 	m.Lock()
 	defer m.Unlock()
-	if _, ok := m.Debouncers[s]; !ok {
+	v, ok := m.Debouncers[s]
+	if !ok {
 		m.Debouncers[s] = &Debouncer{
 			Exec:    debounce.New(2 * time.Second),
 			Stop:    make(chan struct{}, 1),
 			Ingress: i,
 		}
+		return m.Debouncers[s]
 	}
-	return m.Debouncers[s]
+	return v
 }
 
 func main() {
@@ -131,12 +199,19 @@ func main() {
 	networking := networking.NewFactoryFromConfigWithOptionsOrDie(cfg, opts)
 	_ = networking
 	ingressController := v1.New(controllerFactory).Ingress()
+	go func() {
+		for {
+			ProcessIngressEvent()
+		}
+	}()
 	ingressController.OnRemove(ctx, "ingress-handler", func(s string, i *nv1.Ingress) (*nv1.Ingress, error) {
 		go (func() {
 			time.Sleep(time.Second)
-			Debouncers.Get(s, i).Exec(func() {
-				log.Println("# on remove", s)
+			debouncer := Debouncers.Get(s, i)
+			debouncer.Exec(func() {
+				log.Println("# on delete", s)
 				Debouncers.Del(s)
+				IngressEvents <- IngressEvent{Ingress: i, Action: "Delete"}
 			})
 		})()
 		return nil, nil
@@ -146,8 +221,17 @@ func main() {
 			return nil, nil
 		}
 		go (func() {
-			Debouncers.Get(s, i).Exec(func() {
-				log.Println("# on change", s)
+			debouncer := Debouncers.Get(s, i)
+			debouncer.Exec(func() {
+				// log.Println(i)
+				// log.Println(i.ObjectMeta.Annotations)
+				// v, ok := i.ObjectMeta.Annotations["kubernetes.io/ingress.class"]
+				// log.Println(v, ok)
+				v := i.Spec.IngressClassName
+				if v != nil && *v == "k0s" {
+					log.Println("# on update", s)
+					IngressEvents <- IngressEvent{Ingress: i, Action: "Update"}
+				}
 			})
 		})()
 		return i, nil
@@ -170,6 +254,8 @@ func main() {
 		logrus.Fatalf("Error starting: %s", err.Error())
 	}
 
-	wtf.Serve("https://ufo.k0s.io", Debouncers)
+	mux := http.NewServeMux()
+	mux.Handle("/debouncers", Debouncers)
+	wtf.Serve("https://ufo.k0s.io", mux)
 	<-done
 }
