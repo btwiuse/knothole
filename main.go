@@ -35,7 +35,7 @@ import (
 	v1 "github.com/kubernot/wrangler/pkg/generated/controllers/networking.k8s.io/v1"
 	nv1 "k8s.io/api/networking/v1"
 
-	// "github.com/btwiuse/wrangler-sample/pkg/generated/controllers/samplecontroller.k8s.io"
+	// "github.com/btwiuse/knothole/pkg/generated/controllers/samplecontroller.k8s.io"
 	"github.com/kubernot/wrangler/pkg/kubeconfig"
 	"github.com/kubernot/wrangler/pkg/signals"
 	"github.com/kubernot/wrangler/pkg/start"

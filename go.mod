@@ -1,4 +1,4 @@
-module github.com/btwiuse/wrangler-sample
+module github.com/btwiuse/knothole
 
 go 1.22.1
 

@@ -7,4 +7,4 @@ pkg/generated:
 run: build
 	kubectl apply -f manifests/crd.yaml
 	kubectl apply -f manifests/example-foo.yaml
-	./wrangler-sample
+	./knothole
